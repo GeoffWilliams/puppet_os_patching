@@ -172,12 +172,12 @@ class os_patching (
       ensure  => file,
       content => $patch_window,
       require => File[$cache_dir],
-      notify  => Exec[$fact_upload],
+      notify  => Exec['Fact upload'],
     }
   } else {
     file { $patch_window_file:
       ensure => absent,
-      notify => Exec[$fact_upload],
+      notify => Exec['Fact upload'],
     }
   }
 
@@ -193,12 +193,12 @@ class os_patching (
       ensure  => file,
       content => $reboot_override_value,
       require => File[$cache_dir],
-      notify  => Exec[$fact_upload],
+      notify  => Exec['Fact upload'],
     }
   } else {
     file { $reboot_override_file:
       ensure => absent,
-      notify => Exec[$fact_upload],
+      notify => Exec['Fact upload'],
     }
   }
 
@@ -223,16 +223,17 @@ class os_patching (
       ensure  => file,
       content => template("${module_name}/blackout_windows.erb"),
       require => File[$cache_dir],
-      notify  => Exec[$fact_upload],
+      notify  => Exec['Fact upload'],
     }
   } else {
     file { $blackout_window_file:
       ensure => absent,
-      notify => Exec[$fact_upload],
+      notify => Exec['Fact upload'],
     }
   }
 
-  exec { $fact_upload:
+  exec { 'Facts upload':
+    command     => $fact_upload,
     refreshonly => true,
   }
 }
