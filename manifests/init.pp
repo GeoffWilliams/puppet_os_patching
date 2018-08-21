@@ -89,7 +89,7 @@ class os_patching (
     default: { fail('Unsupported OS') }
   }
 
-  $fact_cmd = "${::fact_dir}/${::file_file}"
+  $fact_cmd = "${fact_dir}/${fact_file}"
 
   file { $cache_dir:
     ensure => directory,
