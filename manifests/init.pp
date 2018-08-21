@@ -233,7 +233,7 @@ class os_patching (
   }
 
   exec { 'Fact upload':
-    command     => $fact_upload,
+    command     => "${fact_upload}",
     refreshonly => true,
   }
 }
