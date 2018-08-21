@@ -138,7 +138,7 @@ class os_patching (
       }
     }
     'windows': {
-      exec { 'Cache patch data':
+      exec { $fact_cmd:
         path        => 'C:/Windows/System32/WindowsPowerShell/v1.0',
         refreshonly => true,
         command     => "powershell -executionpolicy remotesigned -file ${fact_cmd}",
