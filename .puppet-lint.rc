@@ -52,4 +52,8 @@
 # nodes
 #--no-unquoted_node_name-check
 
+<<<<<<< HEAD
 # For more controls please see http://puppet-lint.com/plugins/
+=======
+# For more controls please see http://puppet-lint.com/plugins/
+>>>>>>> puppet lint config
