@@ -84,12 +84,12 @@ class os_patching (
       $cache_dir = 'C:/ProgramData/PuppetLabs/puppet/cache'
       $fact_dir = $cache_dir
       $fact_file = 'os_patching_fact_generation.ps1'
-      $fact_upload ='"C:/Program Files/Puppet Labs/Puppet/bin/puppet.bat" facts upload'
+      $fact_upload ="${facts}['env_windows_installdir']/bin/puppet facts upload"
     }
     default: { fail('Unsupported OS') }
   }
 
-  $fact_cmd = "${fact_dir}/${fact_file}"
+  $fact_cmd = "${::fact_dir}/${::file_file}"
 
   file { $cache_dir:
     ensure => directory,
