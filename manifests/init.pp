@@ -231,8 +231,9 @@ class os_patching (
     }
   }
 
+  #command     => "${fact_upload}",
   exec { 'Fact upload':
-    command     => "${fact_upload}",
+    command     => 'C:/Program Files/Puppet Labs/Puppet/bin/puppet facts upload',
     refreshonly => true,
   }
 }
