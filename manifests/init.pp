@@ -84,12 +84,12 @@ class os_patching (
       $cache_dir = 'C:/ProgramData/PuppetLabs/puppet/cache'
       $fact_dir = $cache_dir
       $fact_file = 'os_patching_fact_generation.ps1'
-      $fact_upload ='"C:/Program Files/Puppet Labs/Puppet/bin/puppet.bat" facts upload'
+      $fact_upload ="${facts}['env_windows_installdir']/bin/puppet facts upload"
     }
     default: { fail('Unsupported OS') }
   }
 
-  $fact_cmd = "${fact_dir}/${fact_file}"
+  $fact_cmd = "${::fact_dir}/${::file_file}"
 
 
   file { $cache_dir:
@@ -172,7 +172,7 @@ class os_patching (
       ensure  => file,
       content => $patch_window,
       require => File[$cache_dir],
-      notify  => Exec['Fact upload'],
+      notify  => Exec[$fact_upload],
     }
   } else {
     file { $patch_window_file:
@@ -223,7 +223,7 @@ class os_patching (
       ensure  => file,
       content => template("${module_name}/blackout_windows.erb"),
       require => File[$cache_dir],
-      notify  => Exec['Fact upload'],
+      notify  => Exec[$fact_upload],
     }
   } else {
     file { $blackout_window_file:
