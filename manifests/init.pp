@@ -172,7 +172,7 @@ class os_patching (
       ensure  => file,
       content => $patch_window,
       require => File[$cache_dir],
-      notify  => Exec[$fact_upload],
+      notify  => Exec['Fact upload'],
     }
   } else {
     file { $patch_window_file:
@@ -223,7 +223,7 @@ class os_patching (
       ensure  => file,
       content => template("${module_name}/blackout_windows.erb"),
       require => File[$cache_dir],
-      notify  => Exec[$fact_upload],
+      notify  => Exec['Fact upload'],
     }
   } else {
     file { $blackout_window_file:
