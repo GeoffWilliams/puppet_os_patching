@@ -67,72 +67,102 @@ class os_patching (
   $patch_cron_weekday                = absent,
   $patch_cron_min                    = fqdn_rand(59),
 ){
-  $fact_cmd = '/usr/local/bin/os_patching_fact_generation.sh'
-  $fact_upload ='/opt/puppetlabs/bin/puppet facts upload'
 
-  if ( $::kernel != 'Linux' ) { fail('Unsupported OS') }
-
-  if ( $::osfamily == 'RedHat' ) {
-    package { 'deltarpm':
-      ensure => $install_delta_rpm,
+  case $::kernel {
+    'Linux': {
+      $cache_dir = '/etc/os_patching'
+      $fact_dir = '/usr/local/bin'
+      $fact_file = 'os_patching_fact_generation.sh'
+      $fact_upload ='/opt/puppetlabs/bin/puppet facts upload'
+      File {
+        owner => $patch_data_owner,
+        group => $patch_data_group,
+        mode  => '0644',
+      }
     }
+    'windows': {
+      $cache_dir = 'C:/ProgramData/PuppetLabs/puppet/cache'
+      $fact_dir = $cache_dir
+      $fact_file = 'os_patching_fact_generation.ps1'
+      $fact_upload ="${facts}['env_windows_installdir']/bin/puppet facts upload"
+    }
+    default: { fail('Unsupported OS') }
   }
 
-  file { '/opt/puppetlabs/facter/facts.d/os_patching.yaml':
-    ensure => absent,
-  }
+  $fact_cmd = "${::fact_dir}/${::file_file}"
 
-  file { '/etc/os_patching':
+
+  file { $cache_dir:
     ensure => directory,
-    owner  => 'root',
-    group  => 'root',
-    mode   => '0644',
     notify => Exec[$fact_cmd],
-  }
-
-  unless defined(Class['os_patching::block']) {
-    file { '/etc/os_patching/block.conf':
-      ensure => absent,
-    }
   }
 
   file { $fact_cmd:
     ensure => present,
-    owner  => $patch_data_owner,
-    group  => $patch_data_group,
     mode   => '0700',
-    source => "puppet:///modules/${module_name}/os_patching_fact_generation.sh",
+    source => "puppet:///modules/${module_name}/${fact_file}",
     notify => Exec[$fact_cmd],
   }
 
-  exec { $fact_cmd:
-    user        => $patch_data_owner,
-    group       => $patch_data_group,
-    refreshonly => true,
-    require     => File[$fact_cmd],
+  case $::kernel {
+    'Linux': {
+      if ( $::osfamily == 'RedHat' ) {
+        package { 'deltarpm':
+          ensure => $install_delta_rpm,
+        }
+      }
+
+      exec { $fact_cmd:
+        user        => $patch_data_owner,
+        group       => $patch_data_group,
+        refreshonly => true,
+        require     => File[$fact_cmd],
+      }
+
+      cron { 'Cache patching data':
+        ensure   => present,
+        command  => $fact_cmd,
+        user     => $patch_cron_user,
+        hour     => $patch_cron_hour,
+        minute   => $patch_cron_min,
+        month    => $patch_cron_month,
+        monthday => $patch_cron_monthday,
+        weekday  => $patch_cron_weekday,
+        require  => File[$fact_cmd],
+      }
+
+      cron { 'Cache patching data at reboot':
+        ensure  => present,
+        command => $fact_cmd,
+        user    => $patch_cron_user,
+        special => 'reboot',
+        require => File[$fact_cmd],
+      }
+    }
+    'windows': {
+      exec { 'Cache patch data':
+        path        => 'C:/Windows/System32/WindowsPowerShell/v1.0',
+        refreshonly => true,
+        command     => "powershell -executionpolicy remotesigned -file ${fact_cmd}",
+      }
+
+      scheduled_task { 'Run patch cache script':
+        ensure  => present,
+        enabled => true,
+        command => $fact_cmd,
+        trigger => {
+          schedule         => daily,
+          start_time       => '01:00',
+          minutes_interval => '60',
+        },
+        require => File[$fact_cmd],
+      }
+    }
+    default: {  }
   }
 
-  cron { 'Cache patching data':
-    ensure   => present,
-    command  => $fact_cmd,
-    user     => $patch_cron_user,
-    hour     => $patch_cron_hour,
-    minute   => $patch_cron_min,
-    month    => $patch_cron_month,
-    monthday => $patch_cron_monthday,
-    weekday  => $patch_cron_weekday,
-    require  => File[$fact_cmd],
-  }
 
-  cron { 'Cache patching data at reboot':
-    ensure  => present,
-    command => $fact_cmd,
-    user    => $patch_cron_user,
-    special => 'reboot',
-    require => File[$fact_cmd],
-  }
-
-  $patch_window_file = '/etc/os_patching/patch_window'
+  $patch_window_file = "${cache_dir}/patch_window"
   if ( $patch_window ) {
     if ($patch_window !~ /[A-Za-z0-9\-_ ]+/ ){
       fail ('The patch window can only contain alphanumerics, space, underscore and dash')
@@ -140,11 +170,8 @@ class os_patching (
 
     file { $patch_window_file:
       ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0644',
       content => $patch_window,
-      require => File['/etc/os_patching'],
+      require => File[$cache_dir],
       notify  => Exec[$fact_upload],
     }
   } else {
@@ -154,7 +181,7 @@ class os_patching (
     }
   }
 
-  $reboot_override_file = '/etc/os_patching/reboot_override'
+  $reboot_override_file = "${cache_dir}/reboot_override"
   if ( $reboot_override != undef ) {
     case $reboot_override {
       true:     { $reboot_override_value = 'always' }
@@ -164,11 +191,8 @@ class os_patching (
 
     file { $reboot_override_file:
       ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0644',
       content => $reboot_override_value,
-      require => File['/etc/os_patching'],
+      require => File[$cache_dir],
       notify  => Exec[$fact_upload],
     }
   } else {
@@ -178,7 +202,7 @@ class os_patching (
     }
   }
 
-  $blackout_window_file = '/etc/os_patching/blackout_windows'
+  $blackout_window_file = "${cache_dir}/blackout_windows"
   if ( $blackout_windows ) {
     # Validate the information in the blackout_windows hash
     $blackout_windows.each | String $key, Hash $value | {
@@ -197,11 +221,8 @@ class os_patching (
     }
     file { $blackout_window_file:
       ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0644',
       content => template("${module_name}/blackout_windows.erb"),
-      require => File['/etc/os_patching'],
+      require => File[$cache_dir],
       notify  => Exec[$fact_upload],
     }
   } else {
