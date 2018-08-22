@@ -84,7 +84,7 @@ class os_patching (
       $cache_dir = 'C:/ProgramData/PuppetLabs/puppet/cache'
       $fact_dir = $cache_dir
       $fact_file = 'os_patching_fact_generation.ps1'
-      $fact_upload ="C:/Program\ Files/Puppet\ Labs/Puppet/bin/puppet facts upload"
+      $fact_upload ='cmd.exe -c "C:/Program Files/Puppet Labs/Puppet/bin/puppet" facts upload'
     }
     default: { fail('Unsupported OS') }
   }
@@ -232,9 +232,8 @@ class os_patching (
     }
   }
 
-  #command     => "${fact_upload}",
   exec { 'Fact upload':
-    command     => 'C:/Program Files/Puppet Labs/Puppet/bin/puppet facts upload',
+    command     => $fact_upload,
     refreshonly => true,
   }
 }
