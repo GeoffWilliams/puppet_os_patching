@@ -26,7 +26,7 @@
   "supports_noop": false,
   "description": "Carry out OS patching on the server, optionally including a reboot and/or only applying security related updates",
   "implementations": [
-    {"name": "patch_server.rb", "requirements": ["shell"]},
-    {"name": "patch_server.ps1", "requirements": ["powershell"]}
+    {"name": "linux_patch_server.rb", "requirements": ["shell"]},
+    {"name": "windows_patch_server.rb", "requirements": ["powershell"]}
   ]
 }
