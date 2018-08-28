@@ -24,5 +24,9 @@
   },
   "puppet_task_version": 1,
   "supports_noop": false,
-  "description": "Carry out OS patching on linux servers, optionally including a reboot and/or only applying security related updates"
+  "description": "Carry out OS patching on linux servers, optionally including a reboot and/or only applying security related updates",
+  "implementations": [
+    {"name": "patch_server.rb", "requirements": ["shell"]},
+    {"name": "patch_server_win.rb", "requirements": ["powershell"]}
+  ]
 }
