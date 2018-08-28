@@ -31,7 +31,7 @@ begin
     puts 'Could not apply patch'
     exit (-1)
   end
-  _fact_out, stderr, status = Open3.capture3('C:/ProgramData/PuppetLabs/puppet/cache/os_patching_fact_generation.ps1')
+  _fact_out, stderr, status = Open3.capture3('powershell C:/ProgramData/PuppetLabs/puppet/cache/os_patching_fact_generation.ps1')
   err(status, 'os_patching/fact', stderr, starttime) if status != 0
 rescue StandardError => e
   raise "There was a problem #{e.message}"
