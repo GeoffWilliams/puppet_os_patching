@@ -250,7 +250,7 @@ With the exception of the run_history file, all files in /etc/os_patching will b
 
 ## Limitations
 
-This module is for PE2018+ with agents capable of running tasks.  It is currently limited to the Red Hat and Debian operating system.
+This module is for PE2018+ with agents capable of running tasks.  It is currently limited to the Red Hat and Debian operating system.  Windows (WSUS) support is being actively worked on.
 
 Debian nodes currently do not allow `security_only` patch tasks to be set to `true`, a fix for this is being worked on.
 
