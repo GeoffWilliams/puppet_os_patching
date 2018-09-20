@@ -21,7 +21,7 @@
 # @example assign node to 'Week3' patching window, force a reboot and create a blackout window for the end of the year
 #   class { 'os_patching':
 #     patch_window     => 'Week3',
-#     reboot_override  => true,
+#     reboot_override  => 'always',
 #     blackout_windows => { 'End of year change freeze':
 #       {
 #         'start': '2018-12-15T00:00:00+1000',
@@ -34,7 +34,7 @@
 #   class profiles::soe::patching (
 #     $patch_window     = undef,
 #     $blackout_windows = undef,
-#     $reboot_override  = undef,
+#     $reboot_override  = 'default',
 #   ){
 #     # Pull any blackout windows out of hiera
 #     $hiera_blackout_windows = lookup('profiles::soe::patching::blackout_windows',Hash,hash,{})
