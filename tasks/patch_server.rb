@@ -4,7 +4,7 @@ fact_dir = '/usr/local/bin'
 fact_file = 'os_patching_fact_generation.sh'
 facter = '/opt/puppetlabs/puppet/bin/facter'
 reboot_cmd = 'nohup /sbin/shutdown -r +1 2>/dev/null 1>/dev/null &'
-log = ''
+fact_cmd = ''
 
 require 'rbconfig'
 is_windows = (RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
@@ -13,12 +13,13 @@ if is_windows
   fact_file = 'os_patching_fact_generation.ps1'
   facter = '"C:/Program Files/Puppet Labs/Puppet/bin/facter"'
   reboot_cmd = 'powershell.exe Restart-Computer'
+  fact_cmd = 'powershell.exe ' + fact_dir + '/' + fact_file
 else
   require 'syslog/logger'
   log = Syslog::Logger.new 'os_patching'
+  fact_cmd = fact_dir + '/' + fact_file
 end
 
-fact_cmd = fact_dir + '/' + fact_file
 
 require 'open3'
 require 'json'
