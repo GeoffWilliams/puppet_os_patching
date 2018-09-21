@@ -12,13 +12,14 @@ if is_windows
   fact_file = 'os_patching_fact_generation.ps1'
   facter = '"C:/Program Files/Puppet Labs/Puppet/bin/facter"'
   reboot_cmd = 'powershell.exe Restart-Computer'
+else
+  require 'syslog/logger'
 end
 
 fact_cmd = fact_dir + '/' + fact_file
 
 require 'open3'
 require 'json'
-require 'syslog/logger'
 require 'time'
 require 'timeout'
 
