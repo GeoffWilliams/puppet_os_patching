@@ -51,3 +51,5 @@
 
 # nodes
 #--no-unquoted_node_name-check
+
+# For more controls please see http://puppet-lint.com/plugins/
