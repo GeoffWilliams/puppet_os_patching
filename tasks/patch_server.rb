@@ -1,11 +1,20 @@
 #!/opt/puppetlabs/puppet/bin/ruby
 
+fact_dir = '/usr/local/bin'
+fact_file = 'os_patching_fact_generation.sh'
+facter = '/opt/puppetlabs/puppet/bin/facter'
+reboot_cmd = 'nohup /sbin/shutdown -r +1 2>/dev/null 1>/dev/null &'
+
 require 'rbconfig'
 is_windows = (RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
 if is_windows
-  puts 'Cannot run os_patching::patch_server on Windows'
-  exit 1
+  fact_dir = 'C:/ProgramData/PuppetLabs/puppet/cache'
+  fact_file = 'os_patching_fact_generation.ps1'
+  facter = '"C:/Program Files/Puppet Labs/Puppet/bin/facter"'
+  reboot_cmd = 'powershell.exe Restart-Computer'
 end
+
+fact_cmd = fact_dir + '/' + fact_file
 
 require 'open3'
 require 'json'
@@ -15,15 +24,20 @@ require 'timeout'
 
 $stdout.sync = true
 
-facter = '/opt/puppetlabs/puppet/bin/facter'
-
 log = Syslog::Logger.new 'os_patching'
 starttime = Time.now.iso8601
 BUFFER_SIZE = 4096
 
 # Function to write out the history file after patching
 def history(dts, message, code, reboot, security, job)
-  historyfile = '/etc/os_patching/run_history'
+  is_windows = (RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
+  cache_dir = if is_windows
+                'C:/ProgramData/PuppetLabs/puppet/cache'
+              else
+                '/etc/os_patching'
+              end
+
+  historyfile = cache_dir + '/run_history'
   open(historyfile, 'a') do |f|
     f.puts "#{dts}|#{message}|#{code}|#{reboot}|#{security}|#{job}"
   end
@@ -158,7 +172,7 @@ params = JSON.parse(STDIN.read)
 # Cache fact data to speed things up
 log.info 'os_patching run started'
 log.debug 'Running os_patching fact refresh'
-_fact_out, stderr, status = Open3.capture3('/usr/local/bin/os_patching_fact_generation.sh')
+_fact_out, stderr, status = Open3.capture3(fact_cmd)
 err(status, 'os_patching/fact_refresh', stderr, starttime) if status != 0
 log.debug 'Gathering facts'
 full_facts, stderr, status = Open3.capture3(facter, '-p', '-j')
@@ -284,7 +298,7 @@ if updatecount.zero?
     output('Success', reboot, security_only, 'No patches to apply, reboot triggered', '', '', '', pinned_pkgs, starttime)
     $stdout.flush
     log.info 'No patches to apply, rebooting as requested'
-    p1 = fork { system('nohup /sbin/shutdown -r +1 2>/dev/null 1>/dev/null &') }
+    p1 = fork { system(reboot_cmd) }
     Process.detach(p1)
   else
     output('Success', reboot, security_only, 'No patches to apply', '', '', '', pinned_pkgs, starttime)
@@ -393,7 +407,7 @@ end
 
 # Refresh the facts now that we've patched
 log.info 'Running os_patching fact refresh'
-_fact_out, stderr, status = Open3.capture3('/usr/local/bin/os_patching_fact_generation.sh')
+_fact_out, stderr, status = Open3.capture3(fact_cmd)
 err(status, 'os_patching/fact', stderr, starttime) if status != 0
 
 # Reboot if the task has been told to and there is a requirement OR if reboot_override is set to true
@@ -401,7 +415,7 @@ needs_reboot = reboot_required(facts['os']['family'], facts['os']['release']['ma
 log.info "reboot_required returning #{needs_reboot}"
 if needs_reboot == true
   log.info 'Rebooting'
-  p1 = fork { system('nohup /sbin/shutdown -r +1 2>/dev/null 1>/dev/null &') }
+  p1 = fork { system(reboot_cmd) }
   Process.detach(p1)
 end
 log.info 'os_patching run complete'
