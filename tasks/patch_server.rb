@@ -4,6 +4,7 @@ fact_dir = '/usr/local/bin'
 fact_file = 'os_patching_fact_generation.sh'
 facter = '/opt/puppetlabs/puppet/bin/facter'
 reboot_cmd = 'nohup /sbin/shutdown -r +1 2>/dev/null 1>/dev/null &'
+log = ''
 
 require 'rbconfig'
 is_windows = (RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
@@ -14,6 +15,7 @@ if is_windows
   reboot_cmd = 'powershell.exe Restart-Computer'
 else
   require 'syslog/logger'
+  log = Syslog::Logger.new 'os_patching'
 end
 
 fact_cmd = fact_dir + '/' + fact_file
@@ -25,7 +27,6 @@ require 'timeout'
 
 $stdout.sync = true
 
-log = Syslog::Logger.new 'os_patching'
 starttime = Time.now.iso8601
 BUFFER_SIZE = 4096
 
@@ -171,11 +172,11 @@ end
 params = JSON.parse(STDIN.read)
 
 # Cache fact data to speed things up
-log.info 'os_patching run started'
-log.debug 'Running os_patching fact refresh'
+log.info 'os_patching run started' unless is_windows
+log.debug 'Running os_patching fact refresh' unless is_windows
 _fact_out, stderr, status = Open3.capture3(fact_cmd)
 err(status, 'os_patching/fact_refresh', stderr, starttime) if status != 0
-log.debug 'Gathering facts'
+log.debug 'Gathering facts' unless is_windows
 full_facts, stderr, status = Open3.capture3(facter, '-p', '-j')
 err(status, 'os_patching/facter', stderr, starttime) if status != 0
 facts = JSON.parse(full_facts)
@@ -216,10 +217,10 @@ else
 end
 
 if reboot_override != reboot_param && reboot_override != 'default'
-  log.info "Reboot override set to #{reboot_override}, reboot parameter set to #{reboot_param}.  Using '#{reboot_override}'"
+  log.info "Reboot override set to #{reboot_override}, reboot parameter set to #{reboot_param}.  Using '#{reboot_override}'" unless is_windows
 end
 
-log.info "Reboot after patching set to #{reboot}"
+log.info "Reboot after patching set to #{reboot}" unless is_windows
 
 # Should we only apply security patches?
 security_only = ''
@@ -234,7 +235,7 @@ if params['security_only']
 else
   security_only = false
 end
-log.info "Apply only security patches set to #{security_only}"
+log.info "Apply only security patches set to #{security_only}" unless is_windows
 
 # Have we had any yum parameter specified?
 yum_params = if params['yum_params']
@@ -277,7 +278,7 @@ if blocker.to_s.chomp == 'true'
   # Patching is blocked, list the reasons and error
   # need to error as it SHOULDN'T ever happen if you
   # use the right workflow through tasks.
-  log.error 'Patching blocked, not continuing'
+  log.error 'Patching blocked, not continuing' unless is_windows
   block_reason = facts['os_patching']['blocker_reasons']
   err(100, 'os_patching/blocked', "Patching blocked #{block_reason}", starttime)
 end
@@ -295,30 +296,30 @@ end
 # There are no updates available, exit cleanly rebooting if the override flag is set
 if updatecount.zero?
   if reboot == 'always'
-    log.error 'Rebooting'
+    log.error 'Rebooting' unless is_windows
     output('Success', reboot, security_only, 'No patches to apply, reboot triggered', '', '', '', pinned_pkgs, starttime)
     $stdout.flush
-    log.info 'No patches to apply, rebooting as requested'
+    log.info 'No patches to apply, rebooting as requested' unless is_windows
     p1 = fork { system(reboot_cmd) }
     Process.detach(p1)
   else
     output('Success', reboot, security_only, 'No patches to apply', '', '', '', pinned_pkgs, starttime)
-    log.info 'No patches to apply, exiting'
+    log.info 'No patches to apply, exiting' unless is_windows
   end
   exit(0)
 end
 
 # Run the patching
 if facts['os']['family'] == 'RedHat'
-  log.info 'Running yum upgrade'
-  log.debug "Timeout value set to : #{timeout}"
+  log.info 'Running yum upgrade' unless is_windows
+  log.debug "Timeout value set to : #{timeout}" unless is_windows
   yum_end = ''
   status, output = run_with_timeout("yum #{yum_params} #{securityflag} upgrade -y", timeout, 2)
   err(status, 'os_patching/yum', "yum upgrade returned non-zero (#{status}) : #{output}", starttime) if status != 0
 
   if facts['os']['release']['major'].to_i > 5
     # Capture the yum job ID
-    log.info 'Getting yum job ID'
+    log.info 'Getting yum job ID' unless is_windows
     job = ''
     yum_id, stderr, status = Open3.capture3('yum history')
     err(status, 'os_patching/yum', stderr, starttime) if status != 0
@@ -348,7 +349,7 @@ if facts['os']['family'] == 'RedHat'
     err(1, 'os_patching/yum', 'Yum did not appear to run', starttime) if parsed_end < starttime
 
     # Capture the yum return code
-    log.debug "Getting yum return code for job #{job}"
+    log.debug "Getting yum return code for job #{job}" unless is_windows
     yum_status, stderr, status = Open3.capture3("yum history info #{job}")
     yum_return = ''
     err(status, 'os_patching/yum', stderr, starttime) if status != 0
@@ -363,7 +364,7 @@ if facts['os']['family'] == 'RedHat'
 
     pkg_hash = {}
     # Pull out the updated package list from yum history
-    log.debug "Getting updated package list for job #{job}"
+    log.debug "Getting updated package list for job #{job}" unless is_windows
     updated_packages, stderr, status = Open3.capture3("yum history info #{job}")
     err(status, 'os_patching/yum', stderr, starttime) if status != 0
     updated_packages.split("\n").each do |line|
@@ -378,46 +379,46 @@ if facts['os']['family'] == 'RedHat'
   end
 
   output(yum_return, reboot, security_only, 'Patching complete', pkg_hash, output, job, pinned_pkgs, starttime)
-  log.info 'Patching complete'
+  log.info 'Patching complete' unless is_windows
 elsif facts['os']['family'] == 'Debian'
   # The security only workflow for Debain is a little complex, retiring it for now
   if security_only == true
-    log.error 'Debian upgrades, security only not currently supported'
+    log.error 'Debian upgrades, security only not currently supported' unless is_windows
     err(101, 'os_patching/security_only', 'Security only not supported on Debian at this point', starttime)
   end
 
-  log.debug 'Getting package update list'
+  log.debug 'Getting package update list' unless is_windows
   updated_packages, stderr, status = Open3.capture3("apt-get dist-upgrade -s #{dpkg_params} | awk '/^Inst/ {print $2}'")
   err(status, 'os_patching/apt', stderr, starttime) if status != 0
   pkg_array = updated_packages.split
 
   # Do the patching
-  log.debug 'Running apt update'
+  log.debug 'Running apt update' unless is_windows
   deb_front = 'DEBIAN_FRONTEND=noninteractive'
   deb_opts = '-o Apt::Get::Purge=false -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef --no-install-recommends'
   apt_std_out, stderr, status = Open3.capture3("#{deb_front} #{dpkg_params} -y #{deb_opts} dist-upgrade")
   err(status, 'os_patching/apt', stderr, starttime) if status != 0
 
   output('Success', reboot, security_only, 'Patching complete', pkg_array, apt_std_out, '', pinned_pkgs, starttime)
-  log.info 'Patching complete'
+  log.info 'Patching complete' unless is_windows
 else
   # Only works on Redhat & Debian at the moment
-  log.error 'Unsupported OS - exiting'
+  log.error 'Unsupported OS - exiting' unless is_windows
   err(200, 'os_patching/unsupported_os', 'Unsupported OS', starttime)
 end
 
 # Refresh the facts now that we've patched
-log.info 'Running os_patching fact refresh'
+log.info 'Running os_patching fact refresh' unless is_windows
 _fact_out, stderr, status = Open3.capture3(fact_cmd)
 err(status, 'os_patching/fact', stderr, starttime) if status != 0
 
 # Reboot if the task has been told to and there is a requirement OR if reboot_override is set to true
 needs_reboot = reboot_required(facts['os']['family'], facts['os']['release']['major'], reboot)
-log.info "reboot_required returning #{needs_reboot}"
+log.info "reboot_required returning #{needs_reboot}" unless is_windows
 if needs_reboot == true
-  log.info 'Rebooting'
+  log.info 'Rebooting' unless is_windows
   p1 = fork { system(reboot_cmd) }
   Process.detach(p1)
 end
-log.info 'os_patching run complete'
+log.info 'os_patching run complete' unless is_windows
 exit 0
