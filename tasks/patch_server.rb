@@ -11,7 +11,7 @@ is_windows = (RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
 if is_windows
   fact_dir = 'C:/ProgramData/PuppetLabs/puppet/cache'
   fact_file = 'os_patching_fact_generation.ps1'
-  facter = '"C:/Program Files/Puppet Labs/Puppet/bin/facter"'
+  facter = 'C:/Program Files/Puppet Labs/Puppet/bin/facter'
   reboot_cmd = 'powershell.exe Restart-Computer'
   fact_cmd = 'powershell.exe ' + fact_dir + '/' + fact_file
 else
